@@ -56,15 +56,15 @@ pub fn mount(source: PathBuf, mountpoint: PathBuf) -> Result<i32, MountError> {
     // There will be a fight if this fails to unwrap ...
     let fstype = CString::new("").unwrap();
 
-    let MOUNT_FLAGS = MS_REC | MS_BIND;
-
     // Recursive bind mount filesystem
+    // Propagation type is set to MS_SLAVE, as a read-only mount will never
+    // have changes anyway
     unsafe {
         let success = libc::mount(
             src.as_ptr(),
             target.as_ptr(),
             fstype.as_ptr(),
-            MOUNT_FLAGS,
+            MS_REC | MS_BIND | MS_SLAVE,
             ptr::null(),
         );
 
@@ -73,13 +73,15 @@ pub fn mount(source: PathBuf, mountpoint: PathBuf) -> Result<i32, MountError> {
         }
     }
 
-    // Remount recursive bind mount as read-only
+    // Remount bind mount as read-only
+    // This probably isn't necessary due to the next syscall but for old times'
+    // consistency
     unsafe {
         let success = libc::mount(
             src.as_ptr(),
             target.as_ptr(),
             fstype.as_ptr(),
-            MOUNT_FLAGS | MS_REMOUNT | MS_RDONLY,
+            MS_REMOUNT | MS_BIND | MS_RDONLY,
             ptr::null(),
         );
 
@@ -88,11 +90,13 @@ pub fn mount(source: PathBuf, mountpoint: PathBuf) -> Result<i32, MountError> {
         }
     }
 
-    // Recursively set bind mount (which means including submounts) as read-only
+    // Recursively set all mounts' attributes, including submounts
+    // Same rationale as the above, read-only (as this tool would suggest), and
+    // one way propagation from the "master"
     let mount_attributes: *const mount_attr = &mount_attr {
         attr_set: Mount::MOUNT_ATTR_RDONLY,
         attr_clr: 0,
-        propagation: 0,
+        propagation: MS_SLAVE,
         userns_fd: 0,
     };
 
