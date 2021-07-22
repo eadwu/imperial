@@ -5,6 +5,10 @@ authors = [ "Edmund Wu" ]
 edition = "2018"
 description = "Read-Only Recursive Bind Mounts"
 
+[[bin]]
+name = "rorbind"
+path = "Mount.rs"
+
 [lib]
 name = "rorbind"
 path = "RORBind.rs"
