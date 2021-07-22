@@ -1,3 +1,5 @@
+Read the [Proof of Work](./PoW.md) (a great name) to basically do it yourself currently.
+
 # Motivation
 
 Development in NixOS is _painful_, compared to other distributions to say the least. While the prospect of reproducibility is well-received to an end-user using a "finished" product, for a university student like me, such fixed development instead becomes a liability for productivity.
