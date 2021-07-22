@@ -1,0 +1,11 @@
+[package]
+name = "rorbind"
+version = "0.0.1"
+authors = [ "Edmund Wu" ]
+edition = "2018"
+description = "Read-Only Recursive Bind Mounts"
+
+[dependencies]
+cty = "0.2.1"
+libc = "0.2.98"
+structopt = { version = "0.3", default-features = false }
