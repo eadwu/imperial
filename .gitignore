@@ -1,3 +1,7 @@
 # Nix
 result
 result-*
+
+# Rust
+target/
+!Cargo.lock
