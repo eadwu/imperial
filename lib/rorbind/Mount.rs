@@ -69,7 +69,7 @@ fn mount(src: PathBuf, target: PathBuf) -> Result<i32, MountError> {
     let src_cstr = as_cstr(src)?;
     let target_cstr = as_cstr(target)?;
 
-    let success = rorbind::mount(src_cstr, target_cstr);
+    let success = rorbind::rormount(src_cstr, target_cstr);
     if success != 0 {
         return Err(as_mount_error(success));
     }

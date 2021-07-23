@@ -13,7 +13,7 @@ fn errno() -> c_int {
 expected behavior in the read-only case, propagating to submounts. */
 #[cfg(unix)]
 #[no_mangle]
-pub extern "C" fn mount(src: CString, target: CString) -> c_int {
+pub extern "C" fn rormount(src: CString, target: CString) -> c_int {
     // There will be a fight if this fails to unwrap ...
     let fstype = CString::new("").unwrap();
 
