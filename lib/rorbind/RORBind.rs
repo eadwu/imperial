@@ -12,7 +12,8 @@ fn errno() -> c_int {
 /* Recursively bind mount SRC to TARGET, while delivering the
 expected behavior in the read-only case, propagating to submounts. */
 #[cfg(unix)]
-pub fn mount(src: CString, target: CString) -> c_int {
+#[no_mangle]
+pub extern "C" fn mount(src: CString, target: CString) -> c_int {
     // There will be a fight if this fails to unwrap ...
     let fstype = CString::new("").unwrap();
 

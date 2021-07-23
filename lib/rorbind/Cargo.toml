@@ -12,6 +12,7 @@ path = "Mount.rs"
 [lib]
 name = "rorbind"
 path = "RORBind.rs"
+crate-type = [ "rlib", "staticlib" ]
 
 [dependencies]
 cty = "0.2.1"
