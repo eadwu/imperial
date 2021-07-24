@@ -1,4 +1,4 @@
-# Proof of Work
+# Proof of Concept
 
 Clearly using the literal definition here. The aim of the document is just to provide an overview of the methodology and provide a way for people to test it out the long way since this project is in a state of it'll be done sometime in the future or never.
 

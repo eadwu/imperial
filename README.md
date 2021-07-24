@@ -1,4 +1,4 @@
-Read the [Proof of Work](./PoW.md) (a great name) to basically do it yourself currently.
+Read the [Proof of Concept](./PoC.md) (a great name) to basically do it yourself currently.
 
 # Motivation
 
