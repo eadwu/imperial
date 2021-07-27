@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 mod Lib;
 use Lib::Mount::{self, mount_attr};
 

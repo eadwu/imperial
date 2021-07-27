@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use libc::*;
 
 /* include/uapi/linux/mount.h */
