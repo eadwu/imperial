@@ -13,9 +13,29 @@ Clearly using the literal definition here. The aim of the document is just to pr
 ### Optional Dependencies
 
 - qemu
-  - Namely due to the ability some distributions provide that bypass the need to install from a virtual machine such as Fedora's `dnf`, but this is recommended for consistency and general ease of use
+  - Optional namely due to the ability some distributions provide that bypass the need to install from a virtual machine such as Fedora's `dnf`, but this is recommended for consistency and general ease of use
 
 ## Command Line
+
+It is assumed that the reader is on NixOS ( if not, ... ), is an unprivileged user without access to a privileged user, and that unprivileged user namespaces ( the epitome of fake it until you make it ) are enabled as is by default.
+
+The following are a couple of explanations for some weird choices
+- Usage of binaries under `/run/current-system/sw/bin` instead of just relying on `$PATH`
+  - setuid wrappers are broken under user namespaces in NixOS (or at least the wrapper script NixOS uses)
+
+### One-shot environment variables setup
+
+Nothing special, copy and paste.
+
+```bash
+OVMF_FD="$(nix-build "<nixpkgs>" -A OVMF.fd --no-out-link)"
+
+VIRTIOFSD="$(nix-build "<nixpkgs>" --no-out-link -A qemu)/libexec/virtiofsd"
+VIRTIOFSD_SOCKET_DIR="/tmp"
+
+OVERLAY_DIR="/persist/overlay"
+DISTRO="arch"
+```
 
 ### Setup Directory Structure
 
@@ -26,8 +46,8 @@ OVMF_FD="$(nix-build "<nixpkgs>" -A OVMF.fd --no-out-link)"
 OVERLAY_DIR="/persist/overlay"
 DISTRO="arch"
 
-sudo mkdir -p "${OVERLAY_DIR}/${DISTRO}/uefi" "${OVERLAY_DIR}/${DISTRO}/root"
-sudo cp "${OVMF_FD}/FV/OVMF_CODE.fd" "${OVMF_FD}/FV/OVMF_VARS.fd" "${OVERLAY_DIR}/${DISTRO}/uefi"
+mkdir -p "${OVERLAY_DIR}/${DISTRO}/uefi" "${OVERLAY_DIR}/${DISTRO}/root"
+cp "${OVMF_FD}/FV/OVMF_CODE.fd" "${OVMF_FD}/FV/OVMF_VARS.fd" "${OVERLAY_DIR}/${DISTRO}/uefi"
 ```
 
 ### Setup VirtIO-FSD Socket
@@ -35,22 +55,27 @@ sudo cp "${OVMF_FD}/FV/OVMF_CODE.fd" "${OVMF_FD}/FV/OVMF_VARS.fd" "${OVERLAY_DIR
 Some intricacies apply here, experiment with VirtIO-FSD options as some can prevent certain binaries (such as `passwd`) from working in the virtual machine.
 
 ```bash
-VIRTIOFSD="$(nix-build "<nixpkgs>" --no-out-link -A qemu)/libexec/virtiofsd"
-VIRTIOFSD_SOCKET_DIR="/var/run/virtiofsd"
+unshare --user --mount --map-root-user --propagation slave
 
-OVERLAY_DIR="/persist/overlay"
-DISTRO="arch"
+> # Needed for virtiofsd to write its PID file into /var/run/virtiofsd
+> /run/current-system/sw/bin/mount -t tmpfs none /var
 
-sudo mkdir -p "${VIRTIOFSD_SOCKET_DIR}"
-sudo "${VIRTIOFSD}" --socket-path="${VIRTIOFSD_SOCKET_DIR}/${DISTRO}.sock" -o source="${OVERLAY_DIR}/${DISTRO}/root"
+> VIRTIOFSD="$(nix-build "<nixpkgs>" --no-out-link -A qemu)/libexec/virtiofsd"
+> VIRTIOFSD_SOCKET_DIR="/tmp"
+>
+> OVERLAY_DIR="/persist/overlay"
+> DISTRO="arch"
+>
+> mkdir -p "${VIRTIOFSD_SOCKET_DIR}"
+> "${VIRTIOFSD}" --socket-path="${VIRTIOFSD_SOCKET_DIR}/${DISTRO}.sock" -o source="$(readlink -f "${OVERLAY_DIR}/${DISTRO}/root")"
 ```
 
 Or with more options
 
 ```bash
-# posix_acl needs FUSE support (build-time option)
-VIRTIOFSD_OPTS=("-o" "flock" "-o" "posix_lock" "-o" "xattr" )
-sudo "${VIRTIOFSD}" --socket-path="${VIRTIOFSD_SOCKET_DIR}/${DISTRO}.sock" "${VIRTIOFSD_OPTS[@]}" -o source="${OVERLAY_DIR}/${DISTRO}/root"
+# -o posix_acl needs FUSE support (build-time option)
+> VIRTIOFSD_OPTS=( "-o" "flock" "-o" "posix_lock" "-o" "xattr" )
+> "${VIRTIOFSD}" --socket-path="${VIRTIOFSD_SOCKET_DIR}/${DISTRO}.sock" "${VIRTIOFSD_OPTS[@]}" -o source="${OVERLAY_DIR}/${DISTRO}/root"
 ```
 
 ### Create a Disk Image
@@ -60,7 +85,7 @@ Namely for the ESP Partition needed to satisfy `systemd-boot` and UEFI requireme
 ```bash
 OVERLAY_DIR="/persist/overlay"
 DISTRO="arch"
-sudo qemu-img create -f qcow2 -o cluster_size=2M "${OVERLAY_DIR}/${DISTRO}/boot.qcow2" 1G
+qemu-img create -f qcow2 -o cluster_size=2M "${OVERLAY_DIR}/${DISTRO}/boot.qcow2" 1G
 ```
 
 ### Bootstrap on the Virtual Machine
@@ -69,13 +94,13 @@ An example script to startup the virtual machine.
 
 ```bash
 VIRTIOFSD="$(nix-build "<nixpkgs>" --no-out-link -A qemu)/libexec/virtiofsd"
-VIRTIOFSD_SOCKET_DIR="/var/run/virtiofsd"
+VIRTIOFSD_SOCKET_DIR="/tmp"
 
 OVERLAY_DIR="/persist/overlay"
 DISTRO="arch"
 
 MAC="$(printf '52:54:BE:EF:%02X:%02X' $((RANDOM%256)) $((RANDOM%256)))"
-sudo qemu-system-x86_64 \
+qemu-system-x86_64 \
   # Communication sockets
   -chardev socket,id=guest-root,path="${VIRTIOFSD_SOCKET_DIR}/${DISTRO}.sock" \
   # Instantiate device (cache-size=2G = Enables DAX)
@@ -191,76 +216,142 @@ Finalize installation using `umount -R /mnt` and `shutdown now`.
 
 ### Union Filesystems
 
-#### MergerFS (with RORBind)
+#### Mounting Read-Only Drives
+
+##### With `rorbind`
 
 ```bash
 ROOT_RO="$(mktemp -d)"
-sudo rorbind / "${ROOT_RO}"
-
-ARCH_RO="$(mktemp -d)"
-sudo rorbind /persist/overlay/arch/root "${ARCH_RO}"
-
-CHROOT_ROOT="$(mktemp -d)"
-sudo mergerfs \
-  -o allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create=mfs \
-  -o posix_acl=true \
-  "${ROOT_RO}"=RO:/persist/overlay/arch/root=RW "${CHROOT_ROOT}"
+rorbind / "${ROOT_RO}"
 ```
 
-#### OverlayFS (Untested)
+##### With `bindfs`
 
 ```bash
-# OverlayFS (not supported for upper layer for BCacheFS and ZFS)
-sudo mount -t overlay overlay -olowerdir=/,upperdir=/persist/overlay/arch/root,workdir=/ "$(readlink -f ./root)"
+ROOT_RO="$(mktemp -d)"
+bindfs -o ro / "${ROOT_RO}"
 ```
 
-#### MergerFS
+##### With `mount`
+
+This may have some unintuitive behaviors compared to `rorbind` and `bindfs`, namely submounts arenot read-only in particular.
+
+```bash
+ROOT_RO="$(mktemp -d)"
+/run/current-system/sw/bin/mount -o rbind / "${ROOT_RO}"
+/run/current-system/sw/bin/mount -o bind,remount,ro "${ROOT_RO}" "${ROOT_RO}"
+```
+
+#### Creating Unioned `/` Filesystem
+
+Only `mergerfs` is recommended here, CoW features are not actually desired here for what is envisioned (by thee author).
+
+Other union filesystem commands are provided as a reference and should not be _blindly_ run unless the consequences don't matter to the reader. For example, in `unionfs`, `-ocow` is _needed_ for read-only branch support, thus `rorbind` is needed as a workaround for read-only branches without copy-on-write.
+
+##### MergerFS
 
 ```bash
 # MergerFS
-ROOT_RO="$(mktemp -d)"
-sudo mount -o rbind / "${ROOT_RO}"
-sudo mount -o bind,remount,ro "${ROOT_RO}" "${ROOT_RO}"
-
-ARCH_RO="$(mktemp -d)"
-sudo mount -o bind,ro /persist/overlay/arch/root "${ARCH_RO}"
-
 CHROOT_ROOT="$(mktemp -d)"
-sudo mergerfs \
+mergerfs \
   -o allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create=mfs \
-  -o posix_acl=true \
-  "${ROOT_RO}"=RO:/persist/overlay/arch/root=RW "${CHROOT_ROOT}"
+  -o auto_unmount \
+  "${OVERLAY_DIR}/${DISTRO}/root"=RW:"${ROOT_RO}"=RO "${CHROOT_ROOT}"
 ```
 
-#### UnionFS-FUSE (Untested)
+##### OverlayFS
+
+Note that ZFS or BCacheFS is only allowed as an lower filesystem, so workarounds are needed for the kernel provided OverlayFS.
+
+```bash
+CHROOT_ROOT="$(mktemp -d)"
+WORK_DIR="$(mktemp -d)"
+
+# Kernel OverlayFS
+/run/current-system/sw/bin/mount -t tmpfs none "${WORK_DIR}"
+/run/current-system/sw/bin/mount -t overlay overlay -olowerdir=/,upperdir="${OVERLAY_DIR}/${DISTRO}/root",workdir="${WORK_DIR}" "${CHROOT_ROOT}"
+
+# fuse-overlayfs
+fuse-overlayfs -o lowerdir="${OVERLAY_DIR}/${DISTRO}/root",upperdir=/,workdir="${WORK_DIR}" "${CHROOT_ROOT}"
+```
+
+##### UnionFS
 
 ```bash
 # UnionFS-Fuse
 CHROOT_ROOT="$(mktemp -d)"
-mount -t unionfs-fuse none /dest -o dirs=/source1=RW,/source2=RO
+mkdir -p "${CHROOT_PATH}/root" "${CHROOT_PATH}/arch"
+
+rorbind / "${CHROOT_PATH}/root"
+/run/current-system/sw/bin/mount -o bind "${OVERLAY_DIR}/${DISTRO}/root" "${CHROOT_PATH}/arch"
+
+UNION_ROOT="$(mktemp -d)"
+unionfs -o allow_other,use_ino -o cow,chroot="${CHROOT_PATH}" /root=RO:/arch=RW "${UNION_ROOT}"
 ```
 
 ### Chroot
 
+Mount (or remount) the necessary subsystems.
+
 ```bash
 cd "${CHROOT_ROOT}"
-sudo mount -t proc /proc proc/
-sudo mount -t sysfs /sys sys/
+/run/current-system/sw/bin/mount -t proc /proc proc/
+/run/current-system/sw/bin/mount -t sysfs /sys sys/
 # Warning: When using --rbind, some subdirectories of dev/ and sys/ will not be unmountable.
 # Attempting to unmount with umount -l in this situation will break your session, requiring a reboot.
 #   If possible, use -o bind instead.
-sudo mount -o bind /dev dev/
-sudo mount -o bind /run run/
-sudo mount -o bind /sys/firmware/efi/efivars sys/firmware/efi/efivars/
+/run/current-system/sw/bin/mount -o bind /dev dev/
+/run/current-system/sw/bin/mount -o bind /run run/
+/run/current-system/sw/bin/mount -o bind /sys/firmware/efi/efivars sys/firmware/efi/efivars/
 
-sudo chroot "${CHROOT_ROOT}" /bin/bash
+chroot "${CHROOT_ROOT}" /bin/bash
 # Graphical Application support (unneeded by default most likely)
 ## export DISPLAY="unix${DISPLAY}" # nomially probably unix:0
 # FHS exposure to Shell
 ## export PATH="${PATH}:/usr/bin:/usr/local/bin"
 ```
 
-When done, the environment can be erased using `sudo umount --recursive "${CHROOT_ROOT}"` or `sudo fusermount -u [-z] "${CHROOT_ROOT}"`
+When done, the environment can be erased using `/run/current-system/sw/bin/umount --recursive "${CHROOT_ROOT}"` or `/run/current-system/sw/bin/fusermount -u [-z] "${CHROOT_ROOT}"`
+
+#### Example
+
+```bash
+unshare --user --pid --mount --map-root-user --fork --mount-proc --propagation slave
+
+> # If --fork --mount-proc is omitted
+> /run/current-system/sw/bin/mount --make-rprivate /proc
+> /run/current-system/sw/bin/umount /proc
+> /run/current-system/sw/bin/mount -t proc -o nosuid,nodev,noexec proc /proc
+>
+> CHROOT_PATH="$(mktemp -d)"
+>
+> mkdir -p "${CHROOT_PATH}/arch_ro"
+> rorbind "${OVERLAY_DIR}/${DISTRO}/root" "${CHROOT_PATH}/arch_ro"
+>
+> mkdir -p "${CHROOT_PATH}/root"
+> /run/current-system/sw/bin/mount -o rbind / "${CHROOT_PATH}/root"
+>
+> UNION_ROOT="$(mktemp -d)"
+> mergerfs -o use_ino,cache.files=off,dropcacheonclose=true,allow_other,category.create=mfs -o auto_unmount /=RW:"${CHROOT_PATH}/arch_ro"=RO "${UNION_ROOT}"
+>
+> cd "${UNION_ROOT}"
+> /run/current-system/sw/bin/mount -t proc none proc/
+> # Sadly not permitted in a user namespace without MS_REC
+> # Is a problem, but not really, since it resolves itself when the
+> #   namespace is discarded
+> /run/current-system/sw/bin/mount -o rbind,nosuid /dev dev/
+> # Sticky bit fails in user namespace, so remount /tmp
+> /run/current-system/sw/bin/mount -t tmpfs none tmp/
+>
+> chroot "${UNION_ROOT}"
+> > ...
+> /run/current-system/sw/bin/fusermount -u -z "${CHROOT_ROOT}"
+```
+
+This examples has several pitfalls, some of which are outlined below
+- It is not currently possible to run `pivot_root` on the unioned root with `mergerfs` (see [trapexit/mergerfs@935](https://github.com/trapexit/mergerfs/issues/935))
+  - In the first place, `mergerfs` should be run as `root` so this is a result of the workarounds used for unprivileged access
+  - This prevents a subsequent `unshare` to remap `root` to the default `$UID` and `$GID` which will add confusion to certain applications (i.e. `chromium` and `code-insiders`)
 
 ## Security Considerations
 
