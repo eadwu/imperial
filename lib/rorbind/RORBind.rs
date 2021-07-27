@@ -11,9 +11,8 @@ fn errno() -> libc::c_int {
 
 /* Recursively bind mount SRC to TARGET, while delivering the
 expected behavior in the read-only case, propagating to submounts. */
-#[cfg(unix)]
-#[no_mangle]
-pub extern "C" fn rormount(src: CString, target: CString) -> libc::c_int {
+#[cfg(unix)] #[no_mangle]
+pub extern "C" fn rormount(src: *const libc::c_char, target: *const libc::c_char) -> libc::c_int {
     // There will be a fight if this fails to unwrap ...
     let fstype = CString::new("").unwrap();
 
@@ -22,8 +21,8 @@ pub extern "C" fn rormount(src: CString, target: CString) -> libc::c_int {
     // have changes anyway
     unsafe {
         let success = libc::mount(
-            src.as_ptr(),
-            target.as_ptr(),
+            src,
+            target,
             fstype.as_ptr(),
             MS_REC | MS_BIND | MS_SLAVE,
             ptr::null(),
@@ -39,8 +38,8 @@ pub extern "C" fn rormount(src: CString, target: CString) -> libc::c_int {
     // consistency
     unsafe {
         let success = libc::mount(
-            src.as_ptr(),
-            target.as_ptr(),
+            src,
+            target,
             fstype.as_ptr(),
             MS_REMOUNT | MS_BIND | MS_RDONLY,
             ptr::null(),
@@ -65,7 +64,7 @@ pub extern "C" fn rormount(src: CString, target: CString) -> libc::c_int {
         let success = libc::syscall(
             libc::SYS_mount_setattr,
             -1,
-            target.as_ptr(),
+            target,
             Mount::AT_RECURSIVE,
             mount_attributes,
             mem::size_of::<mount_attr>(),

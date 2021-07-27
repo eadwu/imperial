@@ -66,8 +66,8 @@ fn as_cstr(path: PathBuf) -> Result<CString, MountError> {
 
 /* Wrapper routine to the library. */
 fn mount(src: PathBuf, target: PathBuf) -> Result<i32, MountError> {
-    let src_cstr = as_cstr(src)?;
-    let target_cstr = as_cstr(target)?;
+    let src_cstr = as_cstr(src)?.as_ptr();
+    let target_cstr = as_cstr(target)?.as_ptr();
 
     let success = rorbind::rormount(src_cstr, target_cstr);
     if success != 0 {
