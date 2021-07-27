@@ -34,20 +34,17 @@
         with final.pkgs;
         {
 
-          rorbind = rustPlatform.buildRustPackage {
-            pname = "rorbind";
+          imperial = rustPlatform.buildRustPackage {
+            pname = "imperial";
             version = builtins.substring 0 8 self.lastModifiedDate;
 
             src = self;
             cargoLock.lockFile = "${self}/Cargo.lock";
-
-            # Build all components (binary and library)
-            cargoBuildFlags = [ "--workspace" ];
           };
 
         };
 
-      defaultPackage = forAllSystems (system: self.packages.${system}.rorbind);
+      defaultPackage = forAllSystems (system: self.packages.${system}.imperial);
       packages = forAllSystems (
         system:
         let
@@ -55,7 +52,7 @@
         in
         {
           inherit (pkgSet)
-            rorbind
+            imperial
             ;
         }
       );
