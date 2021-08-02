@@ -1,0 +1,13 @@
+[package]
+name = "unidis"
+version = "0.0.1"
+authors = [ "Edmund Wu" ]
+edition = "2018"
+description = "Union Distribution Shell"
+
+[dependencies]
+libc = "0.2"
+cbindgen = "0.19"
+structopt = "0.3"
+strum = "0.21"
+strum_macros = "0.21"
