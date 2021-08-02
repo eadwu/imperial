@@ -11,3 +11,6 @@ cbindgen = "0.19"
 structopt = "0.3"
 strum = "0.21"
 strum_macros = "0.21"
+tempdir = "0.3.7"
+
+rorbind = { path = "../rorbind" }
