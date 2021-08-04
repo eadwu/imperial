@@ -4,6 +4,8 @@ use libc::*;
 use std::{
     ffi::{CStr, CString},
     mem,
+    os::unix::ffi::OsStrExt,
+    path::Path,
 };
 
 /* errno() returns the ERRNO value, typically of a syscall result. */
@@ -20,7 +22,6 @@ pub type SyscallResult = Result<impl Into<i64>, c_int>;
 loosely wrapped for compatibility with "idiomatic" Rust. */
 pub fn handle_syscall_result(result: SyscallResult) -> SyscallResult
 {
-    let result_borrow = &result;
     match &result {
         Ok(_) => result,
         Err(errno) => {
@@ -88,6 +89,15 @@ pub fn umount(target: &str, flags: c_int) -> SyscallResult
         unsafe { libc::syscall(SYS_umount2, target.as_ptr(), flags) },
         None,
     )
+}
+
+/* chroot() is a wrapper against the syscall SYS_chroot. */
+#[cfg(unix)]
+pub fn chroot(name: &Path) -> SyscallResult
+{
+    let name_os = name.as_os_str();
+    let name = CString::new(name_os.as_bytes()).unwrap();
+    new_syscall_result::<i32>(unsafe { libc::chroot(name.as_ptr()) }, None)
 }
 
 /* waitpid() waits for a process to terminate and returns the
