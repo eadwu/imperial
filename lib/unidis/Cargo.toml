@@ -5,6 +5,11 @@ authors = [ "Edmund Wu" ]
 edition = "2018"
 description = "Union Distribution Shell"
 
+[lib]
+name = "unidis"
+path = "Unidis.rs"
+crate-type = [ "rlib", "staticlib" ]
+
 [dependencies]
 libc = "0.2"
 cbindgen = "0.19"
