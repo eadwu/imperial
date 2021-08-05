@@ -5,6 +5,10 @@ authors = [ "Edmund Wu" ]
 edition = "2018"
 description = "Union Distribution Shell"
 
+[[bin]]
+name = "unidis"
+path = "Main.rs"
+
 [lib]
 name = "unidis"
 path = "Unidis.rs"
