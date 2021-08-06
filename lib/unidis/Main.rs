@@ -22,6 +22,9 @@ struct Arguments
     /// Whether to remount /tmp
     #[structopt(long = "remount-tmp")]
     remount_tmp: bool,
+    /// Override the RIGHT (read-write) side of the union
+    #[structopt(long = "right", parse(from_os_str), default_value = "/")]
+    right: path::PathBuf,
     /// Support root directory to merge
     #[structopt(parse(from_os_str))]
     left: path::PathBuf,
@@ -35,6 +38,10 @@ pub fn main()
 {
     let args = Arguments::from_args();
     println!("{:?}", &args);
+
+    // right -> char *
+    let right_osstr = args.right.as_os_str();
+    let right = CString::new(right_osstr.as_bytes()).unwrap();
 
     // left -> char *
     let left_osstr = args.left.as_os_str();
@@ -63,6 +70,7 @@ pub fn main()
     let unidis_attrs = &unidis::unidis_attrs {
         _phantom: marker::PhantomData,
         left: left.as_ptr(),
+        right: right.as_ptr(),
         argc: argv.len(),
         argv: argv.as_ptr(),
         flags,

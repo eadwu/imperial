@@ -27,6 +27,8 @@ pub struct unidis_attrs<'a>
     // LEFT is the polyfill layer, or backing layer, where files not found
     // in RIGHT are populated with those from LEFT
     pub left: *const c_char,
+    // RIGHT is the read-write layer, ideally the workspace for development
+    pub right: *const c_char,
     // ARGC is the number of command line arguments
     pub argc: uintptr_t,
     // ARGV is the command to run (replacing the process), in accordance
@@ -131,7 +133,8 @@ fn init(unidis_attrs: *const unidis_attrs, revuidmap: &str, revgidmap: &str) -> 
     // Mount unioned filesystem
     let unionfs = get_union_filesystem(unsafe { (*unidis_attrs).unionfs });
     let left = unsafe { CStr::from_ptr((*unidis_attrs).left) };
-    let res = (*unionfs).union(left.to_str().unwrap(), "/");
+    let right = unsafe { CStr::from_ptr((*unidis_attrs).right) };
+    let res = (*unionfs).union(left.to_str().unwrap(), right.to_str().unwrap());
     if res.is_err() {
         println!("{}", res.err().unwrap());
         return Err(EINVAL);
