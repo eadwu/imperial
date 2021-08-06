@@ -16,7 +16,7 @@ fn errno() -> c_int
 
 /* SyscallResult is just a wrapper to the result of an syscall, which
 usually return error codes that are integers. */
-pub type SyscallResult = Result<impl Into<i64>, c_int>;
+pub type SyscallResult = Result<i64, c_int>;
 
 /* handle_syscall_result() runs the routine for the result of an syscall
 loosely wrapped for compatibility with "idiomatic" Rust. */

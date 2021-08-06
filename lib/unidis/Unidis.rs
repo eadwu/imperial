@@ -1,5 +1,4 @@
 #![allow(non_snake_case)]
-#![feature(type_alias_impl_trait)]
 
 mod Libc;
 use Libc::{Clone::clone_args, *};
@@ -11,7 +10,7 @@ pub mod UnionFS;
 use UnionFS::*;
 
 use libc::*;
-use std::{env, ffi::CStr, fs::write, marker, path::Path, ptr};
+use std::{convert::TryInto, env, ffi::CStr, fs::write, marker, path::Path, ptr};
 
 // REMOUNT_TMP means exactly what it says, whether to remount /tmp
 // More specifically, this will occur after the chroot but before
@@ -237,7 +236,7 @@ pub extern "C" fn unidis(unidis_attrs: *const unidis_attrs) -> i64
     // The child takes over the main execution process
     match handle_syscall_result(isolate_namespace()) {
         Err(errno) => errno.into(),
-        Ok(pid) => match pid.into() as i32 {
+        Ok(pid) => match pid {
             // Child process routine
             0 => match handle_syscall_result(init(unidis_attrs, &revuidmap, &revgidmap)) {
                 Err(errno) => errno.into(),
@@ -245,7 +244,7 @@ pub extern "C" fn unidis(unidis_attrs: *const unidis_attrs) -> i64
                 // returned the errno() if it did not.
                 Ok(_) => unreachable!(),
             },
-            pid => match Libc::waitpid(pid, 0) {
+            pid => match Libc::waitpid(pid.try_into().unwrap(), 0) {
                 Err(errno) => errno.into(),
                 Ok(_) => 0,
             },
