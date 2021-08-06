@@ -22,6 +22,9 @@ struct Arguments
     /// Whether to remount /tmp
     #[structopt(long = "remount-tmp")]
     remount_tmp: bool,
+    /// Whether add /usr/bin and /usr/local/bin to the PATH env
+    #[structopt(long = "update-path")]
+    update_path: bool,
     /// Override the RIGHT (read-write) side of the union
     #[structopt(long = "right", parse(from_os_str), default_value = "/")]
     right: path::PathBuf,
@@ -64,6 +67,9 @@ pub fn main()
     let mut flags: u64 = 0;
     if args.remount_tmp {
         flags = flags | unidis::REMOUNT_TMP;
+    }
+    if args.update_path {
+        flags = flags | unidis::UPDATE_PATH;
     }
 
     let flags = flags;

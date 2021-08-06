@@ -18,6 +18,10 @@ use std::{env, ffi::CStr, fs::write, marker, path::Path, ptr};
 // the user remapping to prevent issues such as setting up the new
 // root in `/tmp` of the parent namespace
 pub static REMOUNT_TMP: __u64 = 0x01;
+// UPDATE_PATH triggers whether or not to update the PATH environment
+// variable after the new user environment has been created, specifically
+// appends /usr/bin and /usr/local/bin
+pub static UPDATE_PATH: __u64 = 0x02;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -174,6 +178,13 @@ fn init(unidis_attrs: *const unidis_attrs, revuidmap: &str, revgidmap: &str) -> 
     if can_pivot_root {
         Libc::unshare(CLONE_NEWUSER)?;
         user_mapping("self", revuidmap, revgidmap)?;
+    }
+
+    // Update PATH if requested
+    let update_path = unsafe { (*unidis_attrs).flags } & UPDATE_PATH != 0;
+    if update_path {
+        let old_path = env::var("PATH").unwrap_or(String::new());
+        env::set_var("PATH", old_path + ":/usr/bin:/usr/local/bin");
     }
 
     // Replace running process with EXECUTABLE[ ARGV]
