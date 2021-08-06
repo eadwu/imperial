@@ -1,6 +1,6 @@
 use unidis::{self, UnionFS};
 
-use std::{ffi::CString, iter, marker, os::unix::ffi::OsStrExt, path, ptr};
+use std::{ffi::CString, fs, iter, marker, os::unix::ffi::OsStrExt, path, ptr};
 use structopt::{clap::AppSettings, StructOpt};
 use strum::VariantNames;
 
@@ -43,12 +43,12 @@ pub fn main()
     println!("{:?}", &args);
 
     // right -> char *
-    let right_osstr = args.right.as_os_str();
-    let right = CString::new(right_osstr.as_bytes()).unwrap();
+    let right_osstr = fs::canonicalize(args.right).unwrap();
+    let right = CString::new(right_osstr.as_os_str().as_bytes()).unwrap();
 
     // left -> char *
-    let left_osstr = args.left.as_os_str();
-    let left = CString::new(left_osstr.as_bytes()).unwrap();
+    let left_osstr = fs::canonicalize(args.left).unwrap();
+    let left = CString::new(left_osstr.as_os_str().as_bytes()).unwrap();
 
     // argv -> char ** + NUL-terminated
     let argv = args
