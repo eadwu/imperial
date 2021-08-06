@@ -223,24 +223,21 @@ pub extern "C" fn unc(unidis_attrs: *const unidis_attrs) -> i64
     let revuidmap = IDMap::revuidmap();
     let revgidmap = IDMap::revgidmap();
 
-    // The child takes over the main execution process now as it is in the
+    // The child takes over the main execution process
     match handle_syscall_result(isolate_namespace()) {
         Err(errno) => errno.into(),
-        Ok(pid) => {
-            let pid = pid.into() as i32;
-            match pid {
-                // Child process routine
-                0 => match handle_syscall_result(init(unidis_attrs, &revuidmap, &revgidmap)) {
-                    Err(errno) => errno.into(),
-                    // execvp should've replaced the running process if it succeeded and
-                    // returned the errno() if it did not.
-                    Ok(_) => unreachable!(),
-                },
-                _ => match Libc::waitpid(pid, 0) {
-                    Err(errno) => errno.into(),
-                    Ok(_) => 0,
-                },
-            }
-        }
+        Ok(pid) => match pid.into() as i32 {
+            // Child process routine
+            0 => match handle_syscall_result(init(unidis_attrs, &revuidmap, &revgidmap)) {
+                Err(errno) => errno.into(),
+                // execvp should've replaced the running process if it succeeded and
+                // returned the errno() if it did not.
+                Ok(_) => unreachable!(),
+            },
+            pid => match Libc::waitpid(pid, 0) {
+                Err(errno) => errno.into(),
+                Ok(_) => 0,
+            },
+        },
     }
 }
