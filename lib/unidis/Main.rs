@@ -24,7 +24,7 @@ struct Arguments
     remount_tmp: bool,
     /// Support root directory to merge
     #[structopt(parse(from_os_str))]
-    altroot: path::PathBuf,
+    left: path::PathBuf,
     /// Command to run
     #[structopt(use_delimiter(false))]
     argv: Vec<String>,
@@ -36,9 +36,9 @@ pub fn main()
     let args = Arguments::from_args();
     println!("{:?}", &args);
 
-    // altroot -> char *
-    let altroot_osstr = args.altroot.as_os_str();
-    let altroot = CString::new(altroot_osstr.as_bytes()).unwrap();
+    // left -> char *
+    let left_osstr = args.left.as_os_str();
+    let left = CString::new(left_osstr.as_bytes()).unwrap();
 
     // argv -> char ** + NUL-terminated
     let argv = args
@@ -62,7 +62,7 @@ pub fn main()
     let flags = flags;
     let unidis_attrs = &unidis::unidis_attrs {
         _phantom: marker::PhantomData,
-        altroot: altroot.as_ptr(),
+        left: left.as_ptr(),
         argc: argv.len(),
         argv: argv.as_ptr(),
         flags,

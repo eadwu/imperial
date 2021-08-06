@@ -24,10 +24,9 @@ pub static REMOUNT_TMP: __u64 = 0x01;
 pub struct unidis_attrs<'a>
 {
     pub _phantom: marker::PhantomData<&'a c_char>,
-    // ALTROOT is the alternative root to merge into the current root
-    // The intended use case is to provide a read/execute only overlay
-    // to provide a valid FHS-like structure
-    pub altroot: *const c_char,
+    // LEFT is the polyfill layer, or backing layer, where files not found
+    // in RIGHT are populated with those from LEFT
+    pub left: *const c_char,
     // ARGC is the number of command line arguments
     pub argc: uintptr_t,
     // ARGV is the command to run (replacing the process), in accordance
@@ -131,8 +130,8 @@ fn init(unidis_attrs: *const unidis_attrs, revuidmap: &str, revgidmap: &str) -> 
 
     // Mount unioned filesystem
     let unionfs = get_union_filesystem(unsafe { (*unidis_attrs).unionfs });
-    let altroot = unsafe { CStr::from_ptr((*unidis_attrs).altroot) };
-    let res = (*unionfs).union(altroot.to_str().unwrap(), "/");
+    let left = unsafe { CStr::from_ptr((*unidis_attrs).left) };
+    let res = (*unionfs).union(left.to_str().unwrap(), "/");
     if res.is_err() {
         println!("{}", res.err().unwrap());
         return Err(EINVAL);
