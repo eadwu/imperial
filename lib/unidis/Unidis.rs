@@ -121,7 +121,7 @@ fn init(unidis_attrs: *const unidis_attrs, revuidmap: &str, revgidmap: &str) -> 
 {
     // Setup mount namespace by fixing the propagation and remounting
     // /proc in case CLONE_NEWPID was given
-    Libc::mount("none", "/", "", MS_REC | MS_PRIVATE, ptr::null())?;
+    Libc::mount("none", "/", "", MS_REC | MS_SLAVE, ptr::null())?;
     Libc::mount(
         "none",
         "/proc",
