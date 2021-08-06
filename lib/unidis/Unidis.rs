@@ -120,7 +120,12 @@ fn setup_mounts(mounts: &[Mount::Mount]) -> SyscallResult
 /* init(UNIDIS_ATTRS) sets up the "container" given the configuration
 outlined in UNIDIS_ATTRS. */
 #[cfg(unix)]
-fn init(unidis_attrs: *const unidis_attrs, revuidmap: &str, revgidmap: &str) -> SyscallResult
+fn init(
+    unidis_attrs: *const unidis_attrs,
+    revuidmap: &str,
+    revgidmap: &str,
+    cwd: &Path,
+) -> SyscallResult
 {
     // Setup mount namespace by fixing the propagation and remounting
     // /proc in case CLONE_NEWPID was given
@@ -186,6 +191,11 @@ fn init(unidis_attrs: *const unidis_attrs, revuidmap: &str, revgidmap: &str) -> 
         env::set_var("PATH", old_path + ":/usr/bin:/usr/local/bin");
     }
 
+    // Synchronize current working directory
+    if env::set_current_dir(cwd).is_err() {
+        return Err(EINVAL);
+    }
+
     // Replace running process with EXECUTABLE[ ARGV]
     let executable = unsafe { *((*unidis_attrs).argv) as *const c_char };
     let argv = unsafe { (*unidis_attrs).argv };
@@ -233,12 +243,14 @@ pub extern "C" fn unidis(unidis_attrs: *const unidis_attrs) -> i64
     let revuidmap = IDMap::revuidmap();
     let revgidmap = IDMap::revgidmap();
 
+    let cwd = env::current_dir().unwrap();
+
     // The child takes over the main execution process
     match handle_syscall_result(isolate_namespace()) {
         Err(errno) => errno.into(),
         Ok(pid) => match pid {
             // Child process routine
-            0 => match handle_syscall_result(init(unidis_attrs, &revuidmap, &revgidmap)) {
+            0 => match handle_syscall_result(init(unidis_attrs, &revuidmap, &revgidmap, &cwd)) {
                 Err(errno) => errno.into(),
                 // execvp should've replaced the running process if it succeeded and
                 // returned the errno() if it did not.
