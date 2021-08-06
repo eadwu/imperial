@@ -14,7 +14,7 @@ struct Arguments
 {
     /// Type of union fileystem to use
     #[structopt(
-        short = "t", long = "unionfs", default_value = "mergerfs",
+        short = "t", long = "unionfs", default_value = "fuseunionfs",
         possible_values = UnionFS::SupportedUnionFS::VARIANTS,
         case_insensitive = true,
     )]
