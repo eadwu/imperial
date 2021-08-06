@@ -218,7 +218,7 @@ fn isolate_namespace() -> SyscallResult
 }
 
 #[no_mangle]
-pub extern "C" fn unc(unidis_attrs: *const unidis_attrs) -> i64
+pub extern "C" fn unidis(unidis_attrs: *const unidis_attrs) -> i64
 {
     let revuidmap = IDMap::revuidmap();
     let revgidmap = IDMap::revgidmap();

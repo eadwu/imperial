@@ -77,5 +77,5 @@ pub fn main()
         unionfs: args.unionfs,
     };
 
-    unidis::unc(unidis_attrs);
+    unidis::unidis(unidis_attrs);
 }
