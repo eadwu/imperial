@@ -158,11 +158,7 @@ fn init(
 
     // Change to "new" root directory
     println!("Attempting pivot_root to mountpoint");
-    let support = (*unionfs).support();
-    let can_pivot_root = unionfs_supports(support, UnionFS::PIVOT_ROOT);
-    if can_pivot_root {
-        pivot_root(mnt)?;
-    }
+    pivot_root(mnt)?;
 
     // Unnecessary, but seems like chdir/chroot after pivot_root
     // is standard to prevent escapes from the new root directory
@@ -179,10 +175,8 @@ fn init(
     // requires a new user namespace, a requirement of this step is
     // the success of `pivot_root` for the root directory of the mount
     // namespace to match
-    if can_pivot_root {
-        Libc::unshare(CLONE_NEWUSER)?;
-        user_mapping("self", revuidmap, revgidmap)?;
-    }
+    Libc::unshare(CLONE_NEWUSER)?;
+    user_mapping("self", revuidmap, revgidmap)?;
 
     // Update PATH if requested
     let update_path = unsafe { (*unidis_attrs).flags } & UPDATE_PATH != 0;

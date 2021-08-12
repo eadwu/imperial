@@ -13,27 +13,14 @@ pub enum SupportedUnionFS
     FuseUnionFS,
 }
 
-/* Support Flags. */
-pub static PIVOT_ROOT: u64 = 0x01;
-
 pub trait UnionFS
 {
-    /* support() defines the supported features of the filesystem.
-    Otherwise said, which operations it supports. */
-    fn support(&self) -> u64;
     /* mountpoint() retrieves the Path at which the unioned filesystem
     resides. */
     fn mountpoint(&self) -> &Path;
     /* union() combines two directories specified by LEFT and RIGHT.
     LEFT will always be read-only while RIGHT is always read-write. */
     fn union(&self, left: &str, right: &str) -> Result<(), io::Error>;
-}
-
-/* unionfs_supports() determines if FEATURE is supported given the
-set of FLAGS. */
-pub fn unionfs_supports(flags: u64, feature: u64) -> bool
-{
-    flags & feature != 0
 }
 
 /* get_union_filesystem() gets the implemented trait based of

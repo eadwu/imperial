@@ -1,4 +1,4 @@
-use super::{UnionFS, PIVOT_ROOT};
+use super::UnionFS;
 use crate::Libc;
 
 use rorbind::rormount;
@@ -11,7 +11,6 @@ pub struct FuseUnionFS
 {
     chroot_root: TempDir,
     union_root: TempDir,
-    flags: u64,
 }
 
 impl Default for FuseUnionFS
@@ -23,18 +22,12 @@ impl Default for FuseUnionFS
         FuseUnionFS {
             chroot_root,
             union_root,
-            flags: PIVOT_ROOT,
         }
     }
 }
 
 impl UnionFS for FuseUnionFS
 {
-    fn support(&self) -> u64
-    {
-        self.flags
-    }
-
     fn mountpoint(&self) -> &Path
     {
         self.union_root.path()
